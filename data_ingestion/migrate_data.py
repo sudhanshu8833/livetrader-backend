@@ -47,6 +47,7 @@ for candle in option_candles:
     exchange = candle[11]
     token = candle[12]
 
+
     while(True):
         if not last_contract.get(contract):
             break
