@@ -15,6 +15,6 @@ class Options(models.Model):
     exchange = models.CharField(max_length=50)
 
     class Meta:
-        db_table = 'options'
+        db_table = 'options_temp'
         app_label = 'price_feed_app'
         managed = False

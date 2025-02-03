@@ -9,7 +9,7 @@ class Strategy(LTStrategy):
     def __init__(self):
         self.initial_cash = 100000
         self.start_time = datetime.now() - timedelta(days = 365)
-        self.end_time = datetime.now() - timedelta(days = 30)
+        self.end_time = self.start_time + timedelta(days = 90)
         self.index = IndexContract(
             strategy = self,
             symbol = 'NIFTY',

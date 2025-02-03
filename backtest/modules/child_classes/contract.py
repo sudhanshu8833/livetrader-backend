@@ -8,6 +8,7 @@ from datetime import datetime
 from .position import OptionPosition, PositionStatus
 from LIVE_TRADER.config import STATIC_DATA_INDEX
 from lt_types.index import IndexStaticData
+from backtest.serialize import BaseSerializer
 
 class ContractStatus(Enum):
     ACTIVE = "ACTIVE"
@@ -15,7 +16,7 @@ class ContractStatus(Enum):
     EXPIRED = "EXPIRED"
 
 
-class Contract(BaseModel):
+class Contract(BaseModel, BaseSerializer):
     strategy: Any
     is_master: bool = False
     symbol: str
@@ -25,7 +26,18 @@ class Contract(BaseModel):
     time: datetime = None
     previous_ltp: float = None
     status: ContractStatus = ContractStatus.INACTIVE
-    pnl: float = 0  #CONTRACT_LEVEL_REALIZED_PNL
+    pnl: float = 0 
+
+    _serialize = [
+        'symbol',
+        'exchange',
+        'time_frame',
+        'status',
+        'is_master',
+        'ltp',
+        'pnl',
+        'candles'
+    ]
 
     def get_candle(self, attribute: str, index: int = 0):
         if index >= len(self.candles):
@@ -33,7 +45,7 @@ class Contract(BaseModel):
         return getattr(self.candles[-1 * index - 1], attribute)
 
     def _update_candles(self, candle: Union[IndexCandle, OptionCandle]):
-        self.ltp = float(candle.close or self.ltp)
+        self.ltp = float(candle.close or self.ltp or candle.open)
         self.time = candle.time
         if not self.candles:
             self.candles.append(candle)
@@ -61,6 +73,9 @@ class Contract(BaseModel):
     def expire_contract(self):
         self.exit(exit_percentage = 100)
         self.status = ContractStatus.EXPIRED
+    
+    def remove_candles(self):
+        self.candles = []
 
     def get_active_position(self):
         return self.positions.active
@@ -95,7 +110,7 @@ class OptionContract(Contract):
     lot_size: int = 50
     positions: PositionByStatus = PositionByStatus()
 
-    table: Literal['options'] = 'options'
+    table: Literal['options_temp'] = 'options_temp'
     permanent: Literal[False] = False
 
     def __hash__(self):
@@ -279,7 +294,7 @@ class IndexContract(Contract):
     strike_gap: float = 100
     static_data: Optional[IndexStaticData] = None
     class Config:
-        extra = "allow" 
+        extra = "allow"
 
     def __init__(self, **data):
         super().__init__(**data)

@@ -7,7 +7,7 @@ if __name__ != '__main__':
     from lt_types import TimeFrame, OptionType, AssetType
     from backtest.models import Index, Options
 
-def query_for_backtest(contract: Union[OptionContract, IndexContract], start_time: datetime, end_time: datetime):
+def query_for_backtest(contract: Union[OptionContract, IndexContract], start_time: date, end_time: date):
     query = f"""
         WITH market_time_series AS (
             SELECT time
@@ -30,16 +30,17 @@ def query_for_backtest(contract: Union[OptionContract, IndexContract], start_tim
             close,
             volume,
             exchange,
-            {f"expiration_date, strike_price, option_type, oi," if contract.table == 'options' else ""}
+            {f"expiration_date, strike_price, option_type, oi," if contract.table == 'options_temp' else ""}
             token,
             FLOOR((EXTRACT(EPOCH FROM time) + 1800) / {contract.time_frame.value}) AS minute_group
         FROM {contract.table}
         WHERE time >= '{start_time}'
         AND time < '{end_time}'
+        AND EXTRACT(DOW FROM time) NOT IN (6, 0)
         AND symbol = '{contract.symbol}'
-        {f"AND expiration_date = '{contract.expiration_date}'" if contract.table == 'options' else ""}
-        {f"AND strike_price = {contract.strike_price}" if contract.table == 'options' else ""}
-        {f"AND option_type = '{contract.option_type.value}'" if contract.table == 'options' else ""}
+        {f"AND expiration_date = '{contract.expiration_date}'" if contract.table == 'options_temp' else ""}
+        {f"AND strike_price = {contract.strike_price}" if contract.table == 'options_temp' else ""}
+        {f"AND option_type = '{contract.option_type.value}'" if contract.table == 'options_temp' else ""}
         ),
         full_time_series AS (
             SELECT DISTINCT time FROM market_time_series
@@ -51,8 +52,8 @@ def query_for_backtest(contract: Union[OptionContract, IndexContract], start_tim
                 time,
                 symbol,
                 token,
-                {f"expiration_date, strike_price, option_type, " if contract.table == 'options' else ""}
-                {f"AVG(oi) OVER (PARTITION BY MINUTE_GROUP ORDER BY TIME ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS oi, " if contract.table == 'options' else ""}
+                {f"expiration_date, strike_price, option_type, " if contract.table == 'options_temp' else ""}
+                {f"AVG(oi) OVER (PARTITION BY MINUTE_GROUP ORDER BY TIME ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS oi, " if contract.table == 'options_temp' else ""}
                 FIRST_VALUE(open) OVER (PARTITION BY minute_group ORDER BY time) AS open,
                 MAX(high) OVER (PARTITION BY minute_group ORDER BY time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS rolling_high,
                 MIN(low) OVER (PARTITION BY minute_group ORDER BY time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS rolling_low,
@@ -65,7 +66,7 @@ def query_for_backtest(contract: Union[OptionContract, IndexContract], start_tim
         SELECT
             ts.time as time,
             pd.symbol as symbol,
-            {f"pd.expiration_date as expiration_date, pd.strike_price as strike_price, pd.option_type as option_type, pd.oi as oi," if contract.table == 'options' else ""}
+            {f"pd.expiration_date as expiration_date, pd.strike_price as strike_price, pd.option_type as option_type, pd.oi as oi," if contract.table == 'options_temp' else ""}
             COALESCE(pd.open, LAG(pd.close) OVER (ORDER BY ts.time)) AS open,
             COALESCE(pd.rolling_high, pd.open) AS high,
             COALESCE(pd.rolling_low, pd.open) AS low,
@@ -81,7 +82,7 @@ def query_for_backtest(contract: Union[OptionContract, IndexContract], start_tim
     """
     with open('query.sql', 'w') as f:
         f.write(query)
-    if contract.table == 'options':
+    if contract.table == 'options_temp':
         return Options.objects.raw(query)
     else:
         return Index.objects.raw(query)
@@ -98,16 +99,16 @@ def get_candles_query(contract: Union[OptionContract, IndexContract], start_time
             close,
             volume,
             exchange,
-            {f"expiration_date, strike_price, option_type, oi" if contract.table == 'options' else ""}
+            {f"expiration_date, strike_price, option_type, oi" if contract.table == 'options_temp' else ""}
             token,
             FLOOR((EXTRACT(EPOCH FROM time) + 1800) / {contract.time_frame}) AS minute_group
         FROM {contract.table}
         WHERE time >= '{start_time}'
         AND time < '{end_time}'
         AND symbol = '{contract.symbol}'
-        {f"AND expiration_date = '{contract.expiration_date}'" if contract.table == 'options' else ""}
-        {f"AND strike_price = {contract.strike_price}" if contract.table == 'options' else ""}
-        {f"AND option_type = '{contract.option_type}'" if contract.table == 'options' else ""}
+        {f"AND expiration_date = '{contract.expiration_date}'" if contract.table == 'options_temp' else ""}
+        {f"AND strike_price = {contract.strike_price}" if contract.table == 'options_temp' else ""}
+        {f"AND option_type = '{contract.option_type}'" if contract.table == 'options_temp' else ""}
         aggregated_data AS (
             SELECT
                 *,
@@ -118,7 +119,7 @@ def get_candles_query(contract: Union[OptionContract, IndexContract], start_time
         SELECT
             MIN(time) AS time,
             symbol,
-            {f"expiration_date, strike_price, option_type, AVG(oi)" if contract.table == 'options' else ""}
+            {f"expiration_date, strike_price, option_type, AVG(oi)" if contract.table == 'options_temp' else ""}
             token,
             MIN(first_open) AS open,
             MAX(high) AS high,
@@ -129,14 +130,17 @@ def get_candles_query(contract: Union[OptionContract, IndexContract], start_time
         FROM aggregated_data
         GROUP BY
             symbol, 
-            {f"expiration_date, strike_price, option_type, " if contract.table == 'options' else ""}
+            {f"expiration_date, strike_price, option_type, " if contract.table == 'options_temp' else ""}
             token,
             exchange,
             minute_group
         ORDER BY time;
     """
 
-    if contract.table == 'options':
+    with open('query.sql', 'w') as f:
+        f.write(query)
+
+    if contract.table == 'options_temp':
         return Options.objects.raw(query)
     else:
         return Index.objects.raw(query)

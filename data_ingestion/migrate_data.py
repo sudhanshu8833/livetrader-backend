@@ -66,21 +66,12 @@ for candle in option_candles:
             new_time = last_contract[contract]['time'] - timedelta(seconds=60)
 
         new_time = new_time + timedelta(seconds=60)
-        option_inserts.add((contract, new_time, open, 0, oi))
-        option_inserts.add((contract, new_time + timedelta(seconds=20), high, 0, oi))
-        option_inserts.add((contract, new_time + timedelta(seconds=30), low, 0, oi))
-        option_inserts.add((contract, new_time + timedelta(seconds=59), close, 0, oi))
+        option_inserts.add((contract, new_time, open, high, low, close, 0, oi))
         last_contract[contract]['time'] = new_time
 
     contract_inserts.add((contract, index, expiry, strike, option_type, exchange, token))
 
-    if time.time() == dt_time(10, 0):
-        option_inserts.add((contract, time, open, volume, oi))
-    else:
-        option_inserts.add((contract, time, open, volume, oi))
-        option_inserts.add((contract, time + timedelta(seconds=20), high, 0, oi))
-        option_inserts.add((contract, time + timedelta(seconds=30), low, 0, oi))
-        option_inserts.add((contract, time + timedelta(seconds=59), close, 0, oi))
+    option_inserts.add((contract, time, open, high, low, close , volume, oi))
 
     if len(option_inserts) > 10000:
         ingest_from_db(contracts_data=list(contract_inserts), options_data=list(option_inserts))

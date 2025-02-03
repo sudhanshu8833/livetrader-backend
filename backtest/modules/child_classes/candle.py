@@ -1,8 +1,19 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from backtest.serialize import BaseSerializer
+class Candle(BaseModel, BaseSerializer):
 
-class Candle(BaseModel):
+    _serialize = [
+        "time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "token",
+        "candle_close"
+    ]
+
     time: datetime
     open: float
     high: float

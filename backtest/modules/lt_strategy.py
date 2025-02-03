@@ -7,17 +7,30 @@ from .db_query import query_for_backtest
 from datetime import timedelta, date, datetime, time
 import warnings
 import time as time_now
+import sys
+from backtest.serialize import BaseSerializer
 
+class LTStrategy(BaseSerializer):
 
-class LTStrategy:
+    _serialize = [
+        'expired_contracts',
+        'current_portfolio',
+        'realised_pnl_map',
+        'time_taken',
+        'children_contracts',
+        'start_time',
+        'end_time',
+        'index',
+        'initial_cash',
+        'main_contract',
+    ]
+
     def __init__(self):
         self.time = self.start_time
         self.children_contracts: Dict[str, Union[IndexContract, OptionContract]] = {}
         self.expired_contracts:  List[Union[IndexContract, OptionContract]] = []
         self.current_portfolio = self.initial_cash
-
         self.realised_pnl_map = SortedDict()
-
         self.time_taken = 0
         self._block_ = False
         self.block_till = None
@@ -34,7 +47,7 @@ class LTStrategy:
         if self._block_:
             if self.time > self.block_till:
                 self.unblock()
-
+        # print(self.time)
         self.index._update_candles(candle)
         self.time = candle.time
         for contract in self.children_contracts.values():
@@ -46,8 +59,10 @@ class LTStrategy:
                 else:
                     if self.time.date() > contract.expiration_date:
                         contract.expire_contract()
+                        contract.remove_candles()
                         self.expired_contracts.append(contract)
                         self.children_contracts.pop(contract)
+                        self.children_contracts_data.pop(contract)
                         return
                     print("Data not found for children contracts")
 
@@ -84,36 +99,38 @@ class LTStrategy:
                 option_type = option_type,
                 time_frame = time_frame if time_frame else self.index.time_frame
             )
-            if contract not in self.children_contracts:
-                self.children_contracts[contract] = contract
+            if (contract) not in self.children_contracts:
+                self.children_contracts[(contract)] = contract
                 time1 = time_now.time()
                 self.children_contracts_data[contract] = {
-                    row.time: row for row in query_for_backtest(contract, self.time - timedelta(days=3), min(self.end_time.date(), contract.expiration_date))
+                    row.time: row for row in query_for_backtest(contract, self.time.date() - timedelta(days=1), min(self.end_time.date(), contract.expiration_date) + timedelta(days=1))
                 }
                 print(self.time_taken + (time_now.time() - time1))
                 self.time_taken += (time_now.time() - time1)
             else:
-                contract = self.children_contracts[contract]
+                contract = self.children_contracts[(contract)]
                 contract.candles = []
 
         else:
             contract = IndexContract(
                 symbol = symbol,
-                exchange = exchange if exchange else self.index.exchange,
                 time_frame = time_frame if time_frame else self.index.time_frame
             )
-            if contract not in self.children_contracts:
-                self.children_contracts[contract] = contract
+            if (contract) not in self.children_contracts:
+                self.children_contracts[(contract)] = contract
                 self.children_contracts_data[contract] = {
-                    row.timestamp: row for row in query_for_backtest(contract, self.time - timedelta(days=3), self.end_time)
+                    row.timestamp: row for row in query_for_backtest(contract, self.time.date() - timedelta(days=3), self.end_time)
                 }
             else:
-                contract = self.children_contracts[contract]
+                contract = self.children_contracts[(contract)]
                 contract.candles = []
 
         children_candle = self.children_contracts_data.get(contract, {}).get(self.time)
         if children_candle:
-            contract._update_candles(children_candle)
+            try:
+                contract._update_candles(children_candle)
+            except Exception as e:
+                print(str(e))
         else:
             if self.time.time() > time(15, 30) or self.time.time() < time(9, 15):
                 return contract
@@ -125,7 +142,7 @@ class LTStrategy:
         return sum(self.realised_pnl_map[d] for d in pnl_values)
 
     def get_todays_pnl(self):
-        return self.pnl_map.get(self.time.date(), 0) + self.get_unrealised_pnl()
+        return self.realised_pnl_map.get(self.time.date(), 0) + self.get_unrealised_pnl()
 
     def get_weeks_pnl(self):
         return self.get_pnl_for_date_range(self.time.date() - timedelta(days=self.time.weekday()), self.time.date())
@@ -137,14 +154,14 @@ class LTStrategy:
         return self.get_pnl_for_date_range(self.time.date().replace(month=1, day=1), self.time.date())
 
     def _update_realised_pnl(self, pnl):
-        if self.time.date() not in self.pnl_map:
+        if self.time.date() not in self.realised_pnl_map:
             self.realised_pnl_map[self.time.date()] = pnl
         else:
             self.realised_pnl_map[self.time.date()] += pnl
 
     def get_unrealised_pnl(self):
         unrealised_pnl = 0
-        for item in self.children_contracts:
+        for item in self.children_contracts.values():
             unrealised_pnl += item.get_unrealised_pnl()
         return unrealised_pnl
     
@@ -153,9 +170,9 @@ class LTStrategy:
 
     def get_todays_pnl(self):
         unrealised_pnl = 0
-        for item in self.children_contracts:
+        for item in self.children_contracts.values():
                 unrealised_pnl += item.get_unrealised_pnl()
-        return self.pnl_map.get(self.time.date(), 0) + unrealised_pnl
+        return self.realised_pnl_map.get(self.time.date(), 0) + unrealised_pnl
 
     def distance_from_expiry(self, expiry: date, days: int = True, hours: int = False, minutes: int = False) -> int:
         if days:

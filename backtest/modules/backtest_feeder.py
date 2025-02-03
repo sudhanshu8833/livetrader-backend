@@ -5,13 +5,14 @@ from .child_classes.candle import IndexCandle, OptionCandle
 from pydantic import BaseModel
 from typing import List, Union
 from .db_query import query_for_backtest
+from datetime import timedelta
 
 class BacktestFeeds:
 
     contracts: List[Union[OptionContract, IndexContract]] = []
     def __init__(self, strategy: Strategy):
         self.strategy = strategy
-        self.strategy.main_contract_data = query_for_backtest(self.strategy.index, self.strategy.start_time, self.strategy.end_time)
+        self.strategy.main_contract_data = query_for_backtest(self.strategy.index, self.strategy.start_time.date(), self.strategy.end_time.date()+ timedelta(days=1))
         self.strategy.main_contract = self.strategy.index
         self.strategy.children_contracts = {}
         self.strategy.children_contracts_data = {}

@@ -3,7 +3,7 @@ from typing import List, Literal, Optional, Any
 from .order import OrderStatus, OptionOrder
 from enum import Enum
 from datetime import datetime
-import contract
+# from .contract import OptionContract
 
 class PositionStatus(Enum):
     PENDING = "PENDING"
@@ -265,6 +265,6 @@ class Position(BaseModel):
         return self.status == PositionStatus.CLOSED
 
 class OptionPosition(Position):
-    contract: contract.OptionContract
+    contract: Any
     entry_orders: List[OptionOrder] = []
     exit_orders: List[OptionOrder] = []

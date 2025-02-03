@@ -45,14 +45,14 @@ INSERT_OPTIONS_CONTRACT = """
 
 INSERT_OPTIONS_DATA = """
     INSERT INTO options_data (
-        contract, time, price, volume, oi
-    ) VALUES (%s, %s, %s, %s, %s)
+        contract, time, open, high, low, close, volume, oi
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT DO NOTHING;
 """
 
 def get_options_data(starttime = None, endtime = None):
     query = """
-        SELECT * FROM options where symbol = 'BANKNIFTY';
+        SELECT * FROM options where symbol = 'BANKNIFTY' limit 1000;
     """
     try:
         connection = psycopg2.connect(**DB_CONFIG)
