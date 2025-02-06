@@ -3,7 +3,7 @@
             SELECT time
             FROM generate_series(
                     date_trunc('day', TIMESTAMP '2024-05-02') + INTERVAL '9 hours 15 minutes',
-                    date_trunc('day', TIMESTAMP '2024-05-05') + INTERVAL '15 hours 30 minutes',
+                    date_trunc('day', TIMESTAMP '2024-05-07') + INTERVAL '15 hours 30 minutes',
                     INTERVAL '1 minute'
                 ) AS time
         WHERE EXTRACT(DOW FROM time) NOT IN (6, 0)
@@ -25,11 +25,11 @@
             FLOOR((EXTRACT(EPOCH FROM time) + 1800) / 300) AS minute_group
         FROM options_temp
         WHERE time >= '2024-05-02'
-        AND time < '2024-05-05'
+        AND time < '2024-05-07'
         AND EXTRACT(DOW FROM time) NOT IN (6, 0)
         AND symbol = 'NIFTY'
         AND expiration_date = '2024-05-09'
-        AND strike_price = 22400.0
+        AND strike_price = 22500.0
         AND option_type = 'PE'
         ),
         full_time_series AS (

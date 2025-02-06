@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, ClassVar
 from backtest.serialize import BaseSerializer
 class Candle(BaseModel, BaseSerializer):
 
-    _serialize = [
+    _serialize: ClassVar[list[str]] = [
         "time",
         "open",
         "high",

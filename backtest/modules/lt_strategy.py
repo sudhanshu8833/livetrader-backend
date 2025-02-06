@@ -20,7 +20,6 @@ class LTStrategy(BaseSerializer):
         'children_contracts',
         'start_time',
         'end_time',
-        'index',
         'initial_cash',
         'main_contract',
     ]
@@ -50,7 +49,7 @@ class LTStrategy(BaseSerializer):
         # print(self.time)
         self.index._update_candles(candle)
         self.time = candle.time
-        for contract in self.children_contracts.values():
+        for key, contract in self.children_contracts.items():
             if contract.status == ContractStatus.ACTIVE:
                 children_candle = self.children_contracts_data.get(contract, {}).get(candle.time)
                 if children_candle:
@@ -61,7 +60,7 @@ class LTStrategy(BaseSerializer):
                         contract.expire_contract()
                         contract.remove_candles()
                         self.expired_contracts.append(contract)
-                        self.children_contracts.pop(contract)
+                        self.children_contracts.pop(key)
                         self.children_contracts_data.pop(contract)
                         return
                     print("Data not found for children contracts")
@@ -99,8 +98,8 @@ class LTStrategy(BaseSerializer):
                 option_type = option_type,
                 time_frame = time_frame if time_frame else self.index.time_frame
             )
-            if (contract) not in self.children_contracts:
-                self.children_contracts[(contract)] = contract
+            if str(contract) not in self.children_contracts:
+                self.children_contracts[str(contract)] = contract
                 time1 = time_now.time()
                 self.children_contracts_data[contract] = {
                     row.time: row for row in query_for_backtest(contract, self.time.date() - timedelta(days=1), min(self.end_time.date(), contract.expiration_date) + timedelta(days=1))
@@ -108,7 +107,7 @@ class LTStrategy(BaseSerializer):
                 print(self.time_taken + (time_now.time() - time1))
                 self.time_taken += (time_now.time() - time1)
             else:
-                contract = self.children_contracts[(contract)]
+                contract = self.children_contracts[str(contract)]
                 contract.candles = []
 
         else:
@@ -116,13 +115,13 @@ class LTStrategy(BaseSerializer):
                 symbol = symbol,
                 time_frame = time_frame if time_frame else self.index.time_frame
             )
-            if (contract) not in self.children_contracts:
-                self.children_contracts[(contract)] = contract
+            if str(contract) not in self.children_contracts:
+                self.children_contracts[str(contract)] = contract
                 self.children_contracts_data[contract] = {
                     row.timestamp: row for row in query_for_backtest(contract, self.time.date() - timedelta(days=3), self.end_time)
                 }
             else:
-                contract = self.children_contracts[(contract)]
+                contract = self.children_contracts[str(contract)]
                 contract.candles = []
 
         children_candle = self.children_contracts_data.get(contract, {}).get(self.time)

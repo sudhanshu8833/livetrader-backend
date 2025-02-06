@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from .candle import IndexCandle, OptionCandle
 from datetime import date, time
-from typing import List, Literal, Union, Callable, Any, Optional
+from typing import List, Literal, Union, Callable, Any, Optional, ClassVar
 from lt_types import TimeFrame, OptionType
 from enum import Enum
 from datetime import datetime
@@ -28,7 +28,7 @@ class Contract(BaseModel, BaseSerializer):
     status: ContractStatus = ContractStatus.INACTIVE
     pnl: float = 0 
 
-    _serialize = [
+    _serialize: ClassVar[list[str]] = [
         'symbol',
         'exchange',
         'time_frame',
@@ -36,7 +36,6 @@ class Contract(BaseModel, BaseSerializer):
         'is_master',
         'ltp',
         'pnl',
-        'candles'
     ]
 
     def get_candle(self, attribute: str, index: int = 0):
@@ -97,9 +96,14 @@ class Contract(BaseModel, BaseSerializer):
         else:
             return self.pnl
 
-class PositionByStatus(BaseModel):
+class PositionByStatus(BaseModel, BaseSerializer):
     active: Optional[OptionPosition] = None
     closed: List[OptionPosition] = []
+
+    _serialize: ClassVar[list[str]] = [
+        'active',
+        'closed'
+    ]
 
 class OptionContract(Contract):
     expiration_date: date
@@ -112,6 +116,17 @@ class OptionContract(Contract):
 
     table: Literal['options_temp'] = 'options_temp'
     permanent: Literal[False] = False
+
+    _serialize: ClassVar[list[str]] = Contract._serialize + [
+        'positions',
+        'expiration_date',
+        'strike_price',
+        'option_type',
+        'lot_size',
+        'permanent',
+        'table'
+    ]
+
 
     def __hash__(self):
         return hash((self.symbol, self.expiration_date, self.strike_price, self.option_type, self.exchange, self.time_frame))
@@ -293,6 +308,17 @@ class IndexContract(Contract):
     lot_size: int = 50
     strike_gap: float = 100
     static_data: Optional[IndexStaticData] = None
+
+
+    _serialize: ClassVar[list[str]] = Contract._serialize + [
+        'candles',
+        'lot_size',
+        'strike_gap',
+        'options_expiry',
+        'futures_expiry',
+        'table'
+    ]
+
     class Config:
         extra = "allow"
 

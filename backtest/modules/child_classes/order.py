@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 from enum import Enum
-from typing import Literal, Optional, Any
+from typing import Literal, Optional, Any, ClassVar
 from datetime import datetime
+from backtest.serialize import BaseSerializer
 
 class OrderType(Enum):
     MARKET = "MARKET"
@@ -14,7 +15,7 @@ class OrderStatus(Enum):
     FILLED = "FILLED"
     CANCELLED = "CANCELLED"
 
-class Order(BaseModel):
+class Order(BaseModel, BaseSerializer):
     position: Any
     order_id: str
     time: datetime
@@ -26,6 +27,20 @@ class Order(BaseModel):
     trigger_price: Optional[float] = None# for stop loss and take profit orders
     status: OrderStatus = OrderStatus.OPEN
     fees: float = 0
+
+
+    _serialize: ClassVar[list[str]] = [
+        "order_id",
+        "time",
+        "side",
+        "quantity_ordered",
+        "quantity_executed",
+        "average_executed_price",
+        "price",
+        "trigger_price",
+        "status",
+        "fees"
+    ]
 
     def _fill_order(self, price: float):
         self.quantity_executed = self.quantity_ordered
@@ -63,3 +78,9 @@ class Order(BaseModel):
 class OptionOrder(Order):
     time_in_force: Literal['DAY','GTC', 'IOC', 'FOK'] = 'GTC'
     order_type: OrderType
+    
+
+    _serialize: ClassVar[list[str]] = Order._serialize + [
+        "time_in_force",
+        "order_type"
+    ]

@@ -7,7 +7,7 @@ from lt_types import TimeFrame
 from datetime import time
 class Strategy(LTStrategy):
     def __init__(self):
-        self.initial_cash = 100000
+        self.initial_cash = 10000000
         self.start_time = datetime.now() - timedelta(days = 365)
         self.end_time = self.start_time + timedelta(days = 90)
         self.index = IndexContract(
@@ -32,8 +32,8 @@ class Strategy(LTStrategy):
                 side = 'BUY',
                 quantity=50,
                 order_type='MARKET',
-                take_profit = 20,
-                stop_loss = 10
+                take_profit = 100,
+                stop_loss = 50
             )
 
 

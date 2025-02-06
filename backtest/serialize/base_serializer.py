@@ -1,4 +1,4 @@
-
+from enum import Enum
 from datetime import datetime, date
 from sortedcontainers import SortedDict
 
@@ -13,7 +13,9 @@ class BaseSerializer:
                     elif isinstance(value, date):
                         return value.isoformat()
                     elif isinstance(value, SortedDict):
-                        return dict(value)
+                        return serialize_value(dict(value))
+                    elif isinstance(value, Enum):
+                        return value.value
                     elif isinstance(value, list):
                         return [serialize_value(v) for v in value]
                     elif isinstance(value, dict):
@@ -33,7 +35,7 @@ if __name__ == '__main__':
         def __init__(self):
             self.a = 1
             self.b = 'test'
-            self.c = {datetime.now(): datetime.now()}
+            self.c = {datetime.now().date(): datetime.now()}
         
         # def __hash__(self):
         #     return hash((self.a))
@@ -43,4 +45,4 @@ if __name__ == '__main__':
         str(test): test
     }
     value.pop(str(test))
-    print(f"Identifier: {str(test)}")
+    print(f"Identifier: {test.to_dict()}")

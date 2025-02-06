@@ -11,3 +11,4 @@ log/
 */migrations/*
 *.md
 **/*.csv
+**/*vectorbt*/

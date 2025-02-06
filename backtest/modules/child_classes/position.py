@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing import List, Literal, Optional, Any
+from typing import List, Literal, Optional, Any, ClassVar
 from .order import OrderStatus, OptionOrder
 from enum import Enum
+from backtest.serialize import BaseSerializer
 from datetime import datetime
 # from .contract import OptionContract
 
@@ -11,7 +12,7 @@ class PositionStatus(Enum):
     CLOSED = "CLOSED"
 
 
-class Position(BaseModel):
+class Position(BaseModel, BaseSerializer):
     position_id: str
     status: PositionStatus
     direction: Literal['LONG', 'SHORT']
@@ -24,6 +25,21 @@ class Position(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
     trailing_stop_loss: Optional[float] = None
+
+    _serialize: ClassVar[list[str]] = [
+        'position_id',
+        'status',
+        'direction',
+        'realized_pnl',
+        'unrealized_pnl',
+        'current_price',
+        'current_quantity',
+        'start_time',
+        'end_time',
+        'stop_loss',
+        'take_profit',
+        'trailing_stop_loss'
+    ]
 
     def _calculate_realized_pnl(self, quantity: float, price: float) -> float:
         already_exited_quantity = 0
@@ -268,3 +284,9 @@ class OptionPosition(Position):
     contract: Any
     entry_orders: List[OptionOrder] = []
     exit_orders: List[OptionOrder] = []
+    
+
+    _serialize: ClassVar[list[str]] = Position._serialize + [
+        'entry_orders',
+        'exit_orders'
+    ]
