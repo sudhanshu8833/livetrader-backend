@@ -37,64 +37,51 @@ prepared_options AS (
         volume,
         oi,
         token
-    FROM options_temp
+    FROM options_temp 
+    ORDER BY contract
 ),
 ohlc_data AS (
     SELECT
         ts.contract,
         ts.time,
-        po.symbol,
-        
-        -- First step: If open exists, use it to fill missing values in the same row
-        po.open,
-        COALESCE(po.high, po.open) AS high,
-        COALESCE(po.low, po.open) AS low,
-        COALESCE(po.close, po.open) AS close,
+        -- Forward-fill open
+        COALESCE(
+            po.open,
+            LAST_VALUE(po.open) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS open,
+        -- Forward-fill high
+        COALESCE(
+            po.high,
+            LAST_VALUE(po.high) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS high,
+        -- Forward-fill low
+        COALESCE(
+            po.low,
+            LAST_VALUE(po.low) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS low,
+        -- Forward-fill close
+        COALESCE(
+            po.close,
+            LAST_VALUE(po.close) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS close,
+        -- Forward-fill volume (default to 0 if NULL)
         COALESCE(po.volume, 0) AS volume,
-        po.oi,
-        po.token
+        -- Forward-fill oi
+        COALESCE(
+            po.oi,
+            LAST_VALUE(po.oi) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS oi,
+        -- Forward-fill token
+        COALESCE(
+            po.token,
+            LAST_VALUE(po.token) OVER (PARTITION BY ts.contract ORDER BY ts.time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        ) AS token
     FROM time_series ts
     LEFT JOIN prepared_options po
-    ON po.time = ts.time
-    AND po.contract = ts.contract
-),
-recursive_fill AS (
-    -- Base case: First available row
-    SELECT 
-        contract, 
-        time, 
-        symbol,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        oi,
-        token
-    FROM ohlc_data
-    WHERE close IS NOT NULL
-    UNION ALL
-    -- Recursive case: Fill missing values with last known value
-    SELECT 
-        r.contract, 
-        o.time, 
-        r.symbol,
-        
-        -- Forward-fill using previous row
-        COALESCE(o.open, r.close) AS open,
-        COALESCE(o.high, r.close) AS high,
-        COALESCE(o.low, r.close) AS low,
-        COALESCE(o.close, r.close) AS close,
-
-        -- Set volume to 0 if missing
-        COALESCE(o.volume, 0) AS volume,
-
-        -- Forward-fill OI
-        COALESCE(o.oi, r.oi) AS oi,
-
-        o.token
-    FROM recursive_fill r
-    JOIN ohlc_data o 
-    ON r.contract = o.contract AND r.time < o.time
+    ON po.contract = ts.contract
+    AND po.time = ts.time
 )
-SELECT * FROM recursive_fill ORDER BY contract, time;
+SELECT * 
+FROM ohlc_data 
+ORDER BY time 
+LIMIT 100;

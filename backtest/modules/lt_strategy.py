@@ -167,11 +167,6 @@ class LTStrategy(BaseSerializer):
     def _get_pnl(self, date: date):
         return self.realised_pnl_map.get(date, 0)
 
-    def get_todays_pnl(self):
-        unrealised_pnl = 0
-        for item in self.children_contracts.values():
-                unrealised_pnl += item.get_unrealised_pnl()
-        return self.realised_pnl_map.get(self.time.date(), 0) + unrealised_pnl
 
     def distance_from_expiry(self, expiry: date, days: int = True, hours: int = False, minutes: int = False) -> int:
         if days:

@@ -55,13 +55,13 @@ ohlc_data AS (
     SELECT
         ts.contract,
         ts.time,
-        LAST_VALUE(po.open) OVER w AS open,
-        LAST_VALUE(po.high) OVER w AS high,
-        LAST_VALUE(po.low) OVER w AS low,
-        LAST_VALUE(po.close) OVER w AS close,
+        FIRST_VALUE(po.open) OVER w AS open,
+        FIRST_VALUE(po.high) OVER w AS high,
+        FIRST_VALUE(po.low) OVER w AS low,
+        FIRST_VALUE(po.close) OVER w AS close,
         COALESCE(po.volume, 0) AS volume,
-        LAST_VALUE(po.oi) OVER w AS oi,
-        LAST_VALUE(po.token) OVER w AS token
+        FIRST_VALUE(po.oi) OVER w AS oi,
+        FIRST_VALUE(po.token) OVER w AS token
         -- po.token
     FROM time_series ts
     LEFT JOIN prepared_options po
@@ -69,14 +69,10 @@ ohlc_data AS (
     AND po.time = ts.time
     WINDOW w AS (
         PARTITION BY ts.contract, ts.time 
-        ORDER BY po.time
-        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ORDER BY po.time desc
+        -- WHEN po.close is NOT NULL
+        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
     )
-    -- WINDOW w1 AS (
-    --     PARTITION BY ts.contract, ts.time 
-    --     ORDER BY po.time DESC
-    --     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW IGNORE NULLS
-    -- )
 )
 SELECT * FROM ohlc_data order by time limit 100;
 -- ON CONFLICT DO NOTHING;
