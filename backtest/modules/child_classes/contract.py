@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from .candle import IndexCandle, OptionCandle
-from datetime import date, time
-from typing import List, Literal, Union, Callable, Any, Optional, ClassVar
+from datetime import date, time, timedelta
+from typing import List, Dict, Literal, Union, Callable, Any, Optional, ClassVar
 from lt_types import TimeFrame, OptionType
 from enum import Enum
 from datetime import datetime
@@ -14,7 +14,6 @@ class ContractStatus(Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
     EXPIRED = "EXPIRED"
-
 
 class Contract(BaseModel, BaseSerializer):
     strategy: Any
@@ -37,6 +36,11 @@ class Contract(BaseModel, BaseSerializer):
         'ltp',
         'pnl',
     ]
+
+    def is_candle_close(self) -> bool:
+        if self.candles:
+            return self.candles[-1].candle_close
+        return False
 
     def get_candle(self, attribute: str, index: int = 0):
         if index >= len(self.candles):
@@ -72,6 +76,7 @@ class Contract(BaseModel, BaseSerializer):
     def expire_contract(self):
         self.exit(exit_percentage = 100)
         self.status = ContractStatus.EXPIRED
+    
     
     def remove_candles(self):
         self.candles = []
@@ -143,20 +148,26 @@ class OptionContract(Contract):
 
     def enter(self, 
                 side: Literal['BUY', 'SELL'], 
-                quantity: int,
+                position_size: Union[int, Dict] = Field(..., description = 'Position Size by default is in lot size, so if the lot size is 50, then the quantity ordered will be position_size * 50'),
+                #  example => position_size = {'mode': 'percentage', 'value': 1} => 1% of the portfolio value
                 order_type: Literal['MARKET', 'LIMIT', 'STOP_LOSS_MARKET', 'STOP_LOSS_LIMIT'] = 'MARKET', 
                 price: Optional[float] = None, 
                 trigger_price: Optional[float] = None, 
                 time_in_force: Literal['DAY','GTC','IOC','FOK'] = 'GTC',
-                fees: float = 0,
-                stop_loss: Optional[float] = None,
-                take_profit: Optional[float] = None,
-                trailing_stop_loss: Optional[float] = None, 
+                fees: Optional[float] = None,
+                stop_loss: Optional[Union[float, Dict]] = None,
+                take_profit: Optional[Union[float, Dict]] = None,
+                trailing_stop_loss: Optional[Union[float, Dict]] = None,
             ) -> Optional[OptionPosition]:
 
         if self.strategy._block_:
             return None
 
+        stop_loss = self._handle_stoploss_takeprofit_calculations(stop_loss)
+        take_profit = self._handle_stoploss_takeprofit_calculations(take_profit)
+        trailing_stop_loss = self._handle_stoploss_takeprofit_calculations(trailing_stop_loss)
+
+        # CREATE POSITION
         position = OptionPosition(
             contract = self,
             position_id =str(len(self.positions.closed) + 1),
@@ -174,18 +185,41 @@ class OptionContract(Contract):
             trailing_stop_loss = (self.ltp - trailing_stop_loss if side == 'BUY' else self.ltp + trailing_stop_loss) if trailing_stop_loss else None
         )
 
+        # POSITION SIZING
+        if isinstance(position_size, dict):
+            if position_size['mode'] == 'percentage':
+                if position_size['value'] > 100 or position_size['value'] < 0:
+                    raise ValueError("Position size percentage should be between 0 and 100")
+                value_to_order = ((position_size['value'] / 100) * self.strategy.current_portfolio)
+                position_size = int((value_to_order / self.ltp)/ self.lot_size) * self.lot_size
+            elif position_size['mode'] == 'value':
+                position_size = int((position_size['value'] / self.ltp) / self.lot_size) * self.lot_size
+        else:
+            position_size = position_size * self.lot_size
+
+        # FILLING POSITION
         position.add(
-            quantity = quantity,
+            quantity = position_size,
             order_type = order_type,
             price = price,
             trigger_price = trigger_price,
             time_in_force = time_in_force,
             fees = fees
         )
-        self.positions.active = position
 
+        # SELF STATE UPDATES
+        self.positions.active = position
         self.status = ContractStatus.ACTIVE
         return position
+
+    def _handle_stoploss_takeprofit_calculations(self, input):
+        if input:
+            if isinstance(input, dict):
+                if input['mode'] == 'percentage':
+                    return (input['value'] / 100) * self.ltp
+                return input['value']
+            return input
+        return None
 
     def exit(self,
                 exit_percentage: float = 100,
@@ -194,7 +228,7 @@ class OptionContract(Contract):
                 price: Optional[float] = None, 
                 trigger_price: Optional[float] = None, 
                 time_in_force: Literal['DAY','GTC','IOC','FOK'] = 'GTC',
-                fees: float = 0,
+                fees: Optional[float] = None,
             ) -> OptionPosition:
 
         position = self.positions.active
@@ -348,6 +382,9 @@ class IndexContract(Contract):
     def is_expiry_today(self) -> bool:
         return self.static_data.get_current_expiry(self.time) == self.time.date()
 
+    def get_expiry_after(self, time: datetime) -> date:
+        return self.static_data.get_current_expiry(time)
+
     def monthly_expiry(self) -> date:
         return self.static_data.get_monthly_expiry(self.time)
     
@@ -371,3 +408,16 @@ class IndexContract(Contract):
     def get_atm(self):
         return round(self.ltp / self.static_data.strike_gap) * self.static_data.strike_gap
 
+    def roll_expiry(self, contract: OptionContract, expiry: date) -> OptionContract:
+        contract.exit()
+        new_contract = self.strategy.get_contract(
+            symbol = contract.symbol,
+            expiration_date = expiry,
+            strike_price = contract.strike_price,
+            option_type = contract.option_type
+        )
+        new_contract.enter(
+            side = contract.side,
+            position_size = contract.quantity / contract.lot_size
+        )
+        return new_contract

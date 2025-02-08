@@ -149,7 +149,7 @@ class Position(BaseModel, BaseSerializer):
                 price: Optional[float] = None, 
                 trigger_price: Optional[float] = None, 
                 time_in_force: Literal['DAY','GTC','IOC','FOK'] = 'GTC',
-                fees: float = 0
+                fees: Optional[float] = None
             ):
 
         quantity = quantity if quantity else int(self.current_quantity * (exit_percentage / 100))
@@ -176,12 +176,20 @@ class Position(BaseModel, BaseSerializer):
                 price: Optional[float],
                 trigger_price: Optional[float],
                 time_in_force: Literal['DAY','GTC','IOC','FOK'],
-                fees: float,
+                fees: Optional[float],
             ) -> OptionOrder:
 
         status = OrderStatus.OPEN
         if order_type == 'MARKET':
             status = OrderStatus.FILLED
+
+        if not fees:
+            brokerage = self.contract.strategy.brokerage_per_order
+            if brokerage['mode'] == 'percentage':
+                fees = quantity * self.contract.ltp * brokerage['value']
+            elif brokerage['mode'] == 'absolute':
+                fees = brokerage['value']
+
         order = OptionOrder(
             position=self,
             order_id = str(len(self.entry_orders) + len(self.exit_orders) + 1),
@@ -205,7 +213,7 @@ class Position(BaseModel, BaseSerializer):
                 price: Optional[float] = None,
                 trigger_price: Optional[float] = None,
                 time_in_force: Literal['DAY','GTC','IOC','FOK'] = 'GTC',
-                fees: float = 0
+                fees: Optional[float] = None
             ) -> Optional['OptionPosition']:
 
         if self.contract.strategy._block_:

@@ -1,4 +1,3 @@
-
 -- INSERT INTO options_data (
 --     contract,
 --     time,

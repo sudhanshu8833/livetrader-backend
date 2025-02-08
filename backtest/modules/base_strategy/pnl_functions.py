@@ -25,6 +25,6 @@ class PNLManagement:
         for item in self.children_contracts.values():
             unrealised_pnl += item.get_unrealised_pnl()
         return unrealised_pnl
-    
+
     def _get_pnl(self, date: date):
         return self.realised_pnl_map.get(date, 0)

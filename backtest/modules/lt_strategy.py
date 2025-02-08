@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Union,  List, Dict, Optional
+from pydantic import Field
+from typing import Union,  List, Dict, Optional, Literal
 from sortedcontainers import SortedDict
 from backtest.modules.child_classes.candle import IndexCandle, OptionCandle
 from backtest.modules.child_classes.contract import IndexContract, OptionContract, ContractStatus
@@ -11,7 +11,6 @@ import sys
 from backtest.serialize import BaseSerializer
 
 class LTStrategy(BaseSerializer):
-
     _serialize = [
         'expired_contracts',
         'current_portfolio',
@@ -34,19 +33,20 @@ class LTStrategy(BaseSerializer):
         self._block_ = False
         self.block_till = None
         self.panic_mode = False
+        self.brokerage_per_order: Dict = Field({'mode':'absolute','value':10}, description="By default Brokerrage is per order, other wise you can define a custom brokerage according to percentage")
+        # self.brokerage_per_order = {'mode': 'percentage', 'value': 0.01}
 
     def __getattr__(self, name):
         if name == 'time':
             return self.time.time()
         if name == 'date':
             return self.time.date()
-        raise AttributeError(f"Unknow attribute: {name}")
+        return False
 
     def _update_contracts(self, candle: Union[IndexCandle, OptionCandle]):
         if self._block_:
             if self.time > self.block_till:
                 self.unblock()
-        # print(self.time)
         self.index._update_candles(candle)
         self.time = candle.time
         for key, contract in self.children_contracts.items():
@@ -64,6 +64,7 @@ class LTStrategy(BaseSerializer):
                         self.children_contracts_data.pop(contract)
                         return
                     print("Data not found for children contracts")
+        self._auto_block()
 
     def is_position_opened(self) -> bool:
         for item in self.children_contracts.values():
@@ -158,12 +159,41 @@ class LTStrategy(BaseSerializer):
         else:
             self.realised_pnl_map[self.time.date()] += pnl
 
+    def _auto_block(self):
+        todays_pnl = self.get_todays_pnl()
+        months_pnl = self.get_months_pnl()
+        weeks_pnl = self.get_weeks_pnl()
+
+        CONDITIONS = {
+            'daily': {
+                'percentage': (todays_pnl / (todays_pnl + self.current_portfolio)) * 100,
+                'absolute': todays_pnl
+            },
+            'monthly': {
+                'percentage': (months_pnl / (months_pnl + self.current_portfolio)) * 100,
+                'absolute': months_pnl
+            },
+            'weekly': {
+                'percentage': (weeks_pnl / (weeks_pnl + self.current_portfolio)) * 100,
+                'absolute': weeks_pnl
+            }
+        }
+
+        for value in self._auto_block_by['pnl_limit']:
+            pnl = CONDITIONS[value.calculation][value.mode]
+            if value.type == 'loss':
+                if pnl < value.value:
+                    self._block_for(value.calculation)
+            if value.type == 'profit':
+                if pnl > value.value:
+                    self._block_for(value.calculation)
+
     def get_unrealised_pnl(self):
         unrealised_pnl = 0
         for item in self.children_contracts.values():
             unrealised_pnl += item.get_unrealised_pnl()
         return unrealised_pnl
-    
+
     def _get_pnl(self, date: date):
         return self.realised_pnl_map.get(date, 0)
 
@@ -190,6 +220,14 @@ class LTStrategy(BaseSerializer):
         self._block_ = True
         self.block_till = block_time
         return self.block_till
+
+    def _block_for(self, type: Literal['daily','weekly','monthly']) -> datetime:
+        if type == 'daily':
+            return self.block_for_day()
+        if type == 'weekly':
+            return self.block_for_week()
+        if type == 'monthly':
+            return self.block_for_month() 
 
     def block_for_day(self) -> datetime:
         return self._block(datetime.combine(self.time.date(), time(0, 0)) + timedelta(days=1))
@@ -221,3 +259,5 @@ class LTStrategy(BaseSerializer):
 
     def update_portfolio(self, amount: float):
         self.current_portfolio += amount
+    
+

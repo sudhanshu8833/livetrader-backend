@@ -1,17 +1,29 @@
-from enum import Enum
+import time
 
-class TimeFrame(Enum):
-    MINUTE_1 = 1
-    MINUTE_5 = 5
-    MINUTE_15 = 15
-    MINUTE_30 = 30
-    HOUR_1 = 60
-    DAY_1 = 1440
-    WEEK_1 = 10080
-    MONTH_1 = 43200
+def measure_time(comparison_func, iterations=1000000, runs=10):
+    times = []
+    for _ in range(runs):
+        start_time = time.time()
+        for _ in range(iterations):
+            comparison_func()
+        times.append(time.time() - start_time)
+    return sum(times) / len(times)
 
-print(type(TimeFrame.MINUTE_1))
-timeframe = TimeFrame.MINUTE_1
+# Integer comparison function
+def int_comparison():
+    if 12345 == 12345:
+        pass
 
-if isinstance(timeframe, TimeFrame):
-    print("Yes")
+# String comparison function
+def string_comparison():
+    if "12345" == "12345":
+        pass
+
+# Measure average time for integer comparison
+int_comparison_time = measure_time(int_comparison)
+
+# Measure average time for string comparison
+string_comparison_time = measure_time(string_comparison)
+
+print(f"Average integer comparison time: {int_comparison_time}")
+print(f"Average string comparison time: {string_comparison_time}")

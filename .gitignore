@@ -1,14 +1,11 @@
 env/
 **/*.sqlite3/*
 **/db.json
-DOCS/
-**/*.md
 **/*.env*
 **/db.sqlite3
 **/*.pyc
 .vscode/
 log/
 */migrations/*
-*.md
 **/*.csv
 **/*vectorbt*/

@@ -3,7 +3,7 @@ from lt_types.backtest import OptionCandle, IndexCandle
 from .child_classes.contract import OptionContract, IndexContract
 from typing import Union, List
 from datetime import datetime, timedelta
-from lt_types import TimeFrame
+from lt_types import TimeFrame, LossProfitLimit, PositionSizing
 from datetime import time
 class Strategy(LTStrategy):
     def __init__(self):
@@ -17,7 +17,52 @@ class Strategy(LTStrategy):
             time_frame = TimeFrame.MINUTE_5,
             is_master = True
         )
-        super().__init__() 
+
+        self._auto_block_by: List[LossProfitLimit] = {
+            'pnl_limit': [
+                LossProfitLimit(
+                    mode = 'percentage',
+                    value = 1, 
+                    calculation= 'daily',
+                    type = 'loss'
+                ),
+                LossProfitLimit(
+                    mode = 'percentage',
+                    value = 1,
+                    calculation= 'daily',
+                    type = 'profit'
+                ),
+                LossProfitLimit(
+                    mode = 'percentage',
+                    value = 5, 
+                    calculation= 'monthly', 
+                    type = 'profit'
+                ),
+                LossProfitLimit(
+                    mode = 'absolute',
+                    value = 1,
+                    calculation= 'monthly',
+                    type = 'loss'
+                ),
+                LossProfitLimit(
+                    mode = 'percentage',
+                    value = 2,
+                    calculation= 'weekly',
+                    type = 'profit'
+
+                ),
+                LossProfitLimit(
+                    mode = 'percentage',
+                    value = 1,
+                    calculation= 'weekly',
+                    type = 'loss'
+                )
+            ],
+            # 'max_orders': 3,
+            # 'max_positions_entry': 1
+        } 
+
+        super().__init__()
 
     def on_data(self):
         if not self.is_position_opened() and self.time.time() > time(10,30):
@@ -30,21 +75,8 @@ class Strategy(LTStrategy):
             )
             self.pe_buy.enter(
                 side = 'BUY',
-                quantity=50,
+                position_size=50,
                 order_type='MARKET',
                 take_profit = 100,
                 stop_loss = 50
             )
-
-
-'''
-asset_type, is a fundamental knowledge, 
-and since later we are going to be adding, crypto and forex,
-therefore this distinctions, are really crucial to be made
-assettype -> index, option, crypto, forex
-for each asset_type, exchange can be different
-each asset type will have different candle class, 
-and different contract class
-but for now, positions, orders, and trades are a common class, shared by anyone, maybe later will also have to change this, 
-explain me some reasons why we might have to do it
-'''

@@ -1,4 +1,6 @@
 from enum import Enum
+from pydantic import BaseModel
+from typing import Literal
 
 class TimeFrame(Enum):
     MINUTE_1 = 60
@@ -22,3 +24,12 @@ class AssetType(Enum):
     INDEX = 'index'
     OPTION = 'options'
 
+class LossProfitLimit(BaseModel):
+    mode: Literal['percentage', 'absolute']
+    value: float
+    calculation: Literal['daily','weekly','monthly']
+    types: Literal['loss','profit']
+
+class PositionSizing(BaseModel):
+    mode: Literal['percentage', 'quantity', 'value']
+    value: float
