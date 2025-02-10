@@ -212,3 +212,14 @@ QUERY PLANNING OPTMISATION
     - data cleaning
     - pnl limits on strategy level
     - percentage of balance option.
+
+# TODO'S 10/feb/2024
+1. Plan an idea, overall architecture of indicators in the system
+2. Plan an idea, about how we are going to give indicators options to users
+3. Get the data in raw list format, and then input that in the contracts, in the raw dict format, 
+4. so, we are going to get data directly from db, in list format, will put that value self.feeder.children_contracts_data instead self.children_contracts_data to cache the contracts between multiple instances of the strategy
+5. and after getting all the instances of strategy, on the basis of range function and applying vbt and talib, will get a couple of instances of backtestfeeder
+6. and then will put all the strategies on multiple threads, will probably also have to incorporate a lot of asyncronous programming for it 
+7. so, this way, instead of having a single instance of result, we will have multiple instances of results, and would be able to leverage this
+
+8. Raw data should be a part of the feeder, and not the strategy (with live trading as well, this doesn't makes sense because), and if we are doing range based analysis it will be hampered

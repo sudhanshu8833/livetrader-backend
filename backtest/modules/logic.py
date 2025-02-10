@@ -62,6 +62,8 @@ class Strategy(LTStrategy):
             # 'max_positions_entry': 1
         } 
 
+        self.sma = IndicatorFactory('sma', window = range(5, 20, 5))
+
         super().__init__()
 
     def on_data(self):
@@ -80,3 +82,4 @@ class Strategy(LTStrategy):
                 take_profit = 100,
                 stop_loss = 50
             )
+        # if self.sma.value(2) > 

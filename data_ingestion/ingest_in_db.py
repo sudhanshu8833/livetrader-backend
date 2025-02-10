@@ -93,4 +93,5 @@ def base_ingest_data(query, data):
 if __name__ == "__main__":
     time1 = time.time()
     data = get_options_data()
+    print(data[0:1])
     print(f"Time taken: {time.time() - time1}")

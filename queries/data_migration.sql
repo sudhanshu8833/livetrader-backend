@@ -1,3 +1,4 @@
+
 -- INSERT INTO options_data (
 --     contract,
 --     time,
@@ -54,24 +55,34 @@ ohlc_data AS (
     SELECT
         ts.contract,
         ts.time,
-        FIRST_VALUE(po.open) OVER w AS open,
-        FIRST_VALUE(po.high) OVER w AS high,
-        FIRST_VALUE(po.low) OVER w AS low,
-        FIRST_VALUE(po.close) OVER w AS close,
+        po.open as open,
+        po.high as high,
+        po.low as low,
+        po.close as close,
         COALESCE(po.volume, 0) AS volume,
-        FIRST_VALUE(po.oi) OVER w AS oi,
-        FIRST_VALUE(po.token) OVER w AS token
-        -- po.token
+        po.oi as oi,
+        po.token as token
     FROM time_series ts
     LEFT JOIN prepared_options po
     ON po.contract = ts.contract
     AND po.time = ts.time
-    WINDOW w AS (
-        PARTITION BY ts.contract, ts.time 
-        ORDER BY po.time desc
-        -- WHEN po.close is NOT NULL
-        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-    )
 )
+WITH RECURSIVE filled_data AS (
+    SELECT 
+        contract,
+        time,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        oi,
+        token.
+        open as last_open
+    FROM ohlc_data
+    WHERE 
+
+)
+
 SELECT * FROM ohlc_data order by time limit 100;
 -- ON CONFLICT DO NOTHING;

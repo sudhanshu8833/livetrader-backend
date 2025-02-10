@@ -260,4 +260,3 @@ class LTStrategy(BaseSerializer):
     def update_portfolio(self, amount: float):
         self.current_portfolio += amount
     
-

@@ -76,3 +76,13 @@ so the problem, is when the data starts, and we do not have any prior data, but 
 2. 
 
 1. Dont think much of comparison overheads for now, will later refactor it, right now only look to try keeping the execution in O(n) 
+
+
+# INDICATOR 
+1. we should build a class called IndicatorFactory
+2. we can probably use, self.sma.value(0/1/2)
+3. so, we should make methods like, get_indicator()
+4. and after initiating the strategy object, we will be able to get the names of all the indicators with the argument, 
+5. Then will go to indicatorFactory, which will convert the output of db into array, and then will convert it to df, on that df, will run the indicators needed, 
+6. lets try to integrate TA-Lib and vectorbt, so this way we will have support of a lot of indicators along with the power to have a lot of instances of indicators
+
