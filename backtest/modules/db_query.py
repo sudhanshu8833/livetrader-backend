@@ -2,6 +2,20 @@ from datetime import datetime, date
 from typing import List, Literal, Union
 from backtest.modules.child_classes.contract import OptionContract, IndexContract
 from enum import Enum
+from dotenv import load_dotenv
+import os
+import psycopg2
+load_dotenv()
+
+DB_CONFIG = {
+    'dbname': os.getenv('POSTGRES_DB'),
+    'user': os.getenv('POSTGRES_USER'),
+    'password': os.getenv('POSTGRES_PASSWORD'),
+    'host': os.getenv('TIMESCALE_HOST'),
+    'port': os.getenv('TIMESCALE_PORT')
+}
+connection = psycopg2.connect(**DB_CONFIG)
+cursor = connection.cursor()
 
 if __name__ != '__main__':
     from lt_types import TimeFrame, OptionType, AssetType
@@ -82,10 +96,9 @@ def query_for_backtest(contract: Union[OptionContract, IndexContract], start_tim
     """
     with open('query.sql', 'w') as f:
         f.write(query)
-    if contract.table == 'options_temp':
-        return Options.objects.raw(query)
-    else:
-        return Index.objects.raw(query)
+    cursor.execute(query)
+    results = cursor.fetchall()
+    return results
 
 def get_candles_query(contract: Union[OptionContract, IndexContract], start_time: datetime, end_time: datetime):
 

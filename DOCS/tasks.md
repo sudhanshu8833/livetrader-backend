@@ -223,3 +223,7 @@ QUERY PLANNING OPTMISATION
 7. so, this way, instead of having a single instance of result, we will have multiple instances of results, and would be able to leverage this
 
 8. Raw data should be a part of the feeder, and not the strategy (with live trading as well, this doesn't makes sense because), and if we are doing range based analysis it will be hampered
+
+# TODO'S 17th/FEB/2025
+
+1. Correcting the PSQL query, for data fill (2 hours)

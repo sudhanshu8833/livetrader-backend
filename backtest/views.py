@@ -31,5 +31,6 @@ class BackTestView(viewsets.ViewSet):
         data = request.data
         strategy = Strategy()
         backtest_feeds = BacktestFeeds(strategy)
+        backtest_feeds.start_feeds()
         response = strategy.to_dict()
         return Response(response, status=200)

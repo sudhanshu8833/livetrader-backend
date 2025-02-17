@@ -9,4 +9,4 @@
 7. roll position to a particular exiry *DONE*
 8. max orders, positions a day *NOT PLANNING NOW*
 9. indicators
-10. Option chain related functions
+10. Option chain related functions (Can happen only with having a array of values saved in the options_contract, will need to add 1 more column there, probably will, go with 1m updates)

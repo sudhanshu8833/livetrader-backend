@@ -47,25 +47,25 @@ class Contract(BaseModel, BaseSerializer):
             return None
         return getattr(self.candles[-1 * index - 1], attribute)
 
-    def _update_candles(self, candle: Union[IndexCandle, OptionCandle]):
-        self.ltp = float(candle.close or self.ltp or candle.open)
-        self.time = candle.time
+    def _update_candles(self, candle: Dict):
+        self.ltp = float(candle['close'] or self.ltp or candle['open'])
+        self.time = candle['time']
         if not self.candles:
-            self.candles.append(candle)
+            index_candle = IndexCandle(**candle)
+            self.candles.append(index_candle)
         else:
             if self.candles[-1].candle_close:
                 self.candles.append(candle)
             else:
-
-                    self.candles[-1].open = float(candle.open or self.ltp)
-                    self.candles[-1].high = float(candle.high  or self.ltp)
-                    self.candles[-1].low = float(candle.low or self.ltp)
-                    self.candles[-1].close = float(candle.close or self.ltp)
-                    self.candles[-1].candle_close = candle.candle_close
+                    self.candles[-1].open = float(candle['open'] or self.ltp)
+                    self.candles[-1].high = float(candle['high']  or self.ltp)
+                    self.candles[-1].low = float(candle['low'] or self.ltp)
+                    self.candles[-1].close = float(candle['close'] or self.ltp)
+                    self.candles[-1].candle_close = candle['candle_close']
 
                     if isinstance(candle, OptionCandle):
-                        self.candles[-1].volume = int(candle.volume)
-                        self.candles[-1].oi = int(candle.oi or self.candles[-1].oi)
+                        self.candles[-1].volume = int(candle['volume'])
+                        self.candles[-1].oi = int(candle['oi'] or self.candles[-1].oi)
 
     def has_contract_expired(self):
         return self.status == ContractStatus.EXPIRED

@@ -12,23 +12,33 @@ class BacktestFeeds:
     contracts: List[Union[OptionContract, IndexContract]] = []
     def __init__(self, strategy: Strategy):
         self.strategy = strategy
-        self.strategy.main_contract_data = query_for_backtest(self.strategy.index, self.strategy.start_time.date(), self.strategy.end_time.date()+ timedelta(days=1))
+        self.main_contract_data = query_for_backtest(self.strategy.index, self.strategy.start_time.date(), self.strategy.end_time.date()+ timedelta(days=1))
         self.strategy.main_contract = self.strategy.index
         self.strategy.children_contracts = {}
-        self.strategy.children_contracts_data = {}
-        self.start_feeds()
+        self.children_contracts_data = {}
+        self.strategy.feeder = self
 
     def start_feeds(self):
-        for candle in self.strategy.main_contract_data:
+        for candle in self.main_contract_data:
             if self.strategy.panic_mode:
                 break
+            candle_dict = {
+                'time': candle[0],
+                'symbol': candle[1],
+                'open': candle[2],
+                'high': candle[3],
+                'low': candle[4],
+                'close': candle[5],
+                'volume': candle[6],
+                'exchange': candle[7],
+                'token': candle[8],
+                'candle_close': candle[9]
+            }
 
-            candle_dict = candle.__dict__
             if candle_dict['symbol'] == None:
                 continue
 
-            candle = IndexCandle(**candle_dict)
-            self.strategy._update_contracts(candle) #update_candles should update candles param in self.strategy.main_contract
+            self.strategy._update_contracts(candle_dict) #update_candles should update candles param in self.strategy.main_contract
             self.strategy.on_data()
 
 if __name__=='__main__':

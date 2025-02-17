@@ -1,16 +1,50 @@
+explain analyze INSERT INTO options_data (contract, time, open, high, low, close, volume, oi, token)
 
--- INSERT INTO options_data (
---     contract,
---     time,
---     open,
---     high,
---     low,
---     close,
---     volume,
---     oi,
---     token
--- )
-WITH first_timestamps AS (
+WITH RECURSIVE filled_data AS (
+    SELECT 
+        contract,
+        time,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        oi,
+        token,
+        close AS last_close
+    FROM (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY contract ORDER BY time) as rn
+        FROM ohlc_data
+        WHERE close IS NOT NULL
+    ) t
+    WHERE rn = 1
+    UNION ALL
+
+    SELECT 
+        o.contract,
+        o.time,
+        COALESCE(o.open, f.last_close) AS open,
+        COALESCE(o.high, f.last_close) AS high,
+        COALESCE(o.low, f.last_close) AS low,
+        COALESCE(o.close, f.last_close) AS close,
+        COALESCE(o.volume, 0) AS volume,
+        COALESCE(o.oi, f.oi) AS oi,
+        o.token,
+        COALESCE(o.close, f.last_close) AS last_close
+    FROM filled_data f
+    INNER JOIN ohlc_data o 
+    ON f.contract = o.contract
+    AND o.time > f.time
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM ohlc_data o2
+        WHERE o2.contract = o.contract
+        AND o2.time > f.time 
+        AND o2.time < o.time
+    )
+),
+first_timestamps AS (
     SELECT 
         contract,
         available_from,
@@ -56,9 +90,9 @@ ohlc_data AS (
         ts.contract,
         ts.time,
         po.open as open,
-        po.high as high,
-        po.low as low,
-        po.close as close,
+        COALESCE(po.high,po.open) as high,
+        COALESCE(po.low, po.open) as low,
+        COALESCE(po.close, po.open) as close,
         COALESCE(po.volume, 0) AS volume,
         po.oi as oi,
         po.token as token
@@ -66,23 +100,9 @@ ohlc_data AS (
     LEFT JOIN prepared_options po
     ON po.contract = ts.contract
     AND po.time = ts.time
-)
-WITH RECURSIVE filled_data AS (
-    SELECT 
-        contract,
-        time,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        oi,
-        token.
-        open as last_open
-    FROM ohlc_data
-    WHERE 
-
+    ORDER BY ts.contract, ts.time
 )
 
-SELECT * FROM ohlc_data order by time limit 100;
--- ON CONFLICT DO NOTHING;
+SELECT contract, time, open, high, low, close, volume, oi, token 
+FROM filled_data
+ON CONFLICT DO NOTHING;
